@@ -10,7 +10,7 @@ Double_t GaussianaN(Double_t *x, Double_t *par);
 Double_t BifurGauss(Double_t *x, Double_t *par);
   //=============================
 
-void Montecarlino_PixelAngolato(Int_t Nwave=1000000){
+void Montecarlino_PixelAngolato(Int_t Nwave=10000000){
     //gStyle->SetOptStat("");
   gStyle->SetOptStat("");
   gStyle->SetOptFit(1112);
