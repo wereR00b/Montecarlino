@@ -10,7 +10,7 @@ Double_t GaussianaN(Double_t *x, Double_t *par);
 Double_t BifurGauss(Double_t *x, Double_t *par);
   //===============================================
 
-void Montecarlino_PixelAngolato(Int_t Nwave=10){
+void Montecarlino_PixelAngolato(Int_t Nwave=1000000){
     //gStyle->SetOptStat("");
   gStyle->SetOptStat("");
   gStyle->SetOptFit(1112);
@@ -22,42 +22,48 @@ void Montecarlino_PixelAngolato(Int_t Nwave=10){
    }
    */
 
-  Float_t pix_depth =150.;  // !!! µm
-  Float_t pix_size = 55.-10.;  // !!! µm
-  Float_t trench_w = 5.;  // !!! µm
-  Float_t n_pixels = 1.;  // MUST BE ODD!!! 1,3,5
-  Float_t z_in = 50.; //50.;  // !!! µm
+  // custom parameters
+  const Float_t pix_depth =150.;  // !!! µm
+  const Float_t pix_size = 55.-10.;  // !!! µm
+  const Float_t trench_w = 5.;  // !!! µm
+  const Int_t n_pixels = 5;  // MUST BE ODD!!! 1,3,5
+  const Float_t z_in = 50000.; //50.;  // !!! µm
+  const Int_t drawn_tracks = 10;
+  //Float_t rotD_x[] = {3};  // rotation angles in degrees
+  const Float_t rotD_x[] = {0,3,10,20};  // rotation angles in degrees
+  const Float_t vertex_w = 1.*pix_size;
+  const Bool_t displayVertexes = FALSE;
+
   Float_t x_in, x_out;
+  Float_t x_inV[n_pixels], x_outV[n_pixels], z_inV[n_pixels], z_outV[n_pixels];
   Float_t z_out = z_in+pix_depth;
   Float_t _x_in, _x_out, _z_in,_z_out;
-  Float_t max = 1.2*sqrt(pix_depth*pix_depth+pix_size*pix_size);
   Bool_t trackValid = TRUE;
-  Int_t drawn_tracks = 20;
   Int_t i_track = 0;
-  Float_t min(0.);
   Int_t nbin=1000;
-  Float_t rotD_x[] = {0,3,10,20};  // rotation angles in degrees
   Int_t anglesN = sizeof(rotD_x)/sizeof(rotD_x[0]);
   Float_t rot_x[anglesN];
   TH1F *h_length[anglesN], *h_ampl[anglesN], *hX_in[anglesN];
   TH1F *h_theta = new TH1F("h_theta","theta",50,-0.1,0.1);
   TH2F *h2D_in[anglesN], *h2D_out[anglesN];
   Float_t eff[anglesN];
-  Int_t icol[]={1,2,4,6,7,9};
+  Int_t icol[]={1,2,4,6,7,9,10,11,12,13};
   TString hname("");
   TString htitle("");
+  Int_t z_low, z_high;
     // Landau parameters
   Float_t LandauRatio = 5.;          // LandauPeak/LandauFWHM
   Float_t LandauPeak_meas = 70.;    // fitted value for signal amplitude [mV]
   Float_t elNoise = 1.;             // sigma (RMS) value of electronic noise (Gaussian)
 
-  TCanvas *c2D =new TCanvas("c2D","c2D",anglesN*300,800); c2D->Divide(anglesN,2);
+  TCanvas *c2D =new TCanvas("c2D","c2D",anglesN*550,800); c2D->Divide(anglesN,2);
 
   for(int i=0; i<anglesN; i++){
+    rot_x[i] = rotD_x[i]*3.14/180.;
+
     hname.Form("length%d",i);
     htitle.Form("Track length distribution for different tilt angles");
-    rot_x[i] = rotD_x[i]*3.14/180.;
-    h_length[i] = new TH1F(hname, htitle,nbin,min,max);
+    h_length[i] = new TH1F(hname, htitle,nbin,0.,1.2*sqrt(pix_depth*pix_depth+pix_size*pix_size) );
     h_length[i]->SetLineColor(icol[i]);
     h_length[i]->SetLineWidth(2);
     h_length[i]->GetXaxis()->SetTitle("length [#mum]");
@@ -72,71 +78,123 @@ void Montecarlino_PixelAngolato(Int_t Nwave=10){
     hname.Form("h_xIN%d",i);
     htitle.Form("h_xIN%1.0f deg",rotD_x[i]);
     hX_in[i] = new TH1F(hname, htitle,nbin,-6.*pix_size,6*pix_size);
+    if (displayVertexes) {
+      z_low = -0.1*z_in;
+      z_high = 1.05*z_out;
+    } else  {
+      z_low = z_in-50.;
+      z_high = z_out+50.;
+    }
+
     hname.Form("IN%d",i);
     htitle.Form("IN %1.0f deg",rotD_x[i]);
-    h2D_in[i] = new TH2F(hname, htitle,nbin,-0.5*(n_pixels+1)*pix_size,0.5*(n_pixels+1)*pix_size,nbin, -0.2*z_in, z_out*1.05);
+    h2D_in[i] = new TH2F(hname, htitle,nbin,-0.5*(n_pixels+1)*pix_size,0.5*(n_pixels+1)*pix_size,nbin, z_low, z_high);
     hname.Form("OUT%d",i);
     htitle.Form("OUT %1.0f deg",rotD_x[i]);
-    h2D_out[i] = new TH2F(hname, htitle,nbin,-0.5*(n_pixels+1)*pix_size,0.5*(n_pixels+1)*pix_size,nbin,-0.2*z_in, z_out*1.05);
+    h2D_out[i] = new TH2F(hname, htitle,nbin,-0.5*(n_pixels+1)*pix_size,0.5*(n_pixels+1)*pix_size,nbin, z_low, z_high);
+
+    // draw dummy histogram to set axes
+    c2D->cd(i+1);  h2D_in[i]->Draw("colz");
+    c2D->cd(i+anglesN+1);  h2D_out[i]->Draw("colz");
+
+    i_track = 0;
+
     for(int iw=0; iw<Nwave; iw++){
       Float_t weight=1;
       Float_t theta_x = rot_x[i]+ rndm.Gaus(0.,0.0001); // sigma of the beam ~0.0001rad
       h_theta->Fill(theta_x);
-      Float_t x = rndm.Uniform(-0.5*pix_size-z_in*tan(theta_x),0.5*pix_size-z_in*tan(theta_x)); // x coordinate of the vertex (z=0)
+      Float_t x = rndm.Uniform(-0.5*vertex_w-z_in*tan(rot_x[i]),0.5*vertex_w-z_in*tan(rot_x[i])); // x coordinate of the vertex (z=0)
       // also draw the vertexes
       h2D_in[i]->Fill(x,0.);
       h2D_out[i]->Fill(x,0.);
       x_in  = x + tan(theta_x)*z_in;  // track position at z=z_in
       x_out = x + tan(theta_x)*z_out; // track position at z=z_out
-      hX_in[i]->Fill(x_in);
+      //hX_in[i]->Fill(x_in);
       /*
        cout<<
        " x_in="<<x_in<<" x_out="<<x_out<<
        " z_in="<<z_in<<" z_out="<<z_out<<endl;
        */
-//      if (i_track < drawn_tracks) {
-        TLine *trackline = new TLine(x_in,z_in,x_out,z_out);
-        trackline->SetLineColor(kBlue);
-        trackline->SetLineWidth(8);
+      // draw the track line (up to a max number)
+      if (i_track < drawn_tracks) {
+        TLine *trackline = new TLine(x,0,x_out,z_out);
+        trackline->SetLineColor(18);
+        trackline->SetLineWidth(1);
         c2D->cd(i+1);
         trackline->Draw();
         c2D->cd(i+anglesN+1);
         trackline->Draw();
         i_track++;
-//      }
-      // check if entry point is in central pixel
-      if(fabs(x_in)<=pix_size/2.) {
+      }
+      // check if entry point enters the pixel(s) from the front
+      if(fabs(x_in)<=0.5*n_pixels*pix_size) {
         _z_in = z_in;
         _x_in = x_in;
-      } else { // the track enters the pixel from the side
-        if(x_in>pix_size/2. ){
-          _x_in = pix_size/2.;
-          _z_in = (pix_size/2. -x) /tan(theta_x);
+      } else { // the track might enter the pixel(s) from the side
+        if(x_in>0.5*n_pixels*pix_size ){
+          _x_in = 0.5*n_pixels*pix_size;
+          _z_in = (0.5*n_pixels*pix_size -x) /tan(theta_x);
             //cout<<"PIU:x="<<x<<"  x_in="<<_x_in<<" z_in="<<_z_in<<" calcolo="<<x+tan(theta_x)*_z_in<<" "<<theta_x<<endl;
         } else {
-          _x_in = -pix_size/2.;
-          _z_in = (-pix_size/2. - x) /tan(theta_x);
+          _x_in = -0.5*n_pixels*pix_size;
+          _z_in = (-0.5*n_pixels*pix_size - x) /tan(theta_x);
             //cout<<"MENO:x="<<x<<"  x_in="<<_x_in<<" z_in="<<_z_in<<" calcolo="<<x+tan(theta_x)*_z_in<<" "<<theta_x<<endl;
         }
-        if( _z_in<z_in || _z_in>z_out ) trackValid=FALSE; //continue;
+        if( _z_in<z_in || _z_in>z_out ) { // the track doesnt cross the pixel
+          trackValid=FALSE;
+          //cout << "_z_in<z_in || _z_in>z_out";
+        }
       }
-      if(fabs(x_out)<=pix_size/2.) {
+      if(fabs(x_out)<=0.5*n_pixels*pix_size) {
         _z_out = z_out;
         _x_out = x_out;
       } else { // the track exits the pixel from the side
-        if(x_out>pix_size/2. ) {
-          _x_out = pix_size/2.;
-          _z_out = (pix_size/2. -x) /tan(theta_x);
+        if(x_out>0.5*n_pixels*pix_size ) {
+          _x_out = 0.5*n_pixels*pix_size;
+          _z_out = (0.5*n_pixels*pix_size -x) /tan(theta_x);
         } else {
-          _x_out = -pix_size/2.;
-          _z_out = (-pix_size/2. -x) /tan(theta_x);
+          _x_out = -0.5*n_pixels*pix_size;
+          _z_out = (-0.5*n_pixels*pix_size -x) /tan(theta_x);
         }
-        if( _z_in<z_in || _z_in>z_out ) trackValid=FALSE; //continue;
+        if( _z_in<z_in || _z_in>z_out ) { // the track doesnt cross the pixel
+          trackValid=FALSE;
+        }
+      }
+      for (int i_pix=-0.5*n_pixels; i_pix<=0.5*n_pixels; i_pix++) {  //ex: if n_pixels is 3, i_pix= -1,0,1
+        //cout << "trench: "<<-0.5*trench_w+i_pix*pix_size << "\t"  << 0.5*trench_w+i_pix*pix_size << endl;
+        if ( (_x_in>-0.5*trench_w+i_pix*pix_size)&&(_x_in<0.5*trench_w+i_pix*pix_size) //
+            && //
+             (_x_out>-0.5*trench_w+i_pix*pix_size)&&(_x_out<0.5*trench_w+i_pix*pix_size) ) { //whole track is inside (one of) trench(es)
+          trackValid=FALSE;
+          //cout << "!!!! _x_in= " <<_x_in << "\t _x_out= "<< _x_out<< endl;
+        }
+        //cout << "i_pix= "<< i_pix << endl;
       }
 
       if (trackValid==TRUE) { // compute length and fill histograms only if the track is inside the pixel
         Float_t length = sqrt((_x_out-_x_in)*(_x_out-_x_in)+(_z_out-_z_in)*(_z_out-_z_in));
-        if (fabs(_x_in)<0.5*trench_w && fabs(_x_out)<0.5*trench_w) {  // whole track is inside trench
+
+        for (int i_pix=-0.5*n_pixels; i_pix<=0.5*n_pixels; i_pix++) {  //ex: if n_pixels is 3, i_pix= -1,0,1
+          if ( (_x_in>-0.5*trench_w+i_pix*pix_size)&&(_x_in<0.5*trench_w+i_pix*pix_size) ) { // track enters the pixel inside the trench but exits outside of it
+//             Float_t DeltaW = 0.5*trench_w+ theta_x/fabs(theta_x)*_x_in - theta_x/fabs(theta_x)*i_pix*pix_size;   //-> trench width intercepted by track
+            length = length - (0.5*trench_w+ theta_x/fabs(theta_x)*_x_in- theta_x/fabs(theta_x)*i_pix*pix_size)/fabs(sin(theta_x));
+//            cout << "track enters the pixel inside the trench but exits outside of it" << endl;
+//            cout << " _x_in = " <<  _x_in << "  _x_out = " << _x_out << " - DeltaW=" << DeltaW << endl << "---------------------"<<endl;
+          }
+          if ( (_x_out>-0.5*trench_w+i_pix*pix_size)&&(_x_out<0.5*trench_w+i_pix*pix_size) ) { // track enters the pixel outside the trench but exits inside of it
+//             Float_t DeltaW = 0.5*trench_w - theta_x/fabs(theta_x)*_x_out + theta_x/fabs(theta_x)*i_pix*pix_size;   //-> trench width intercepted by track
+            length = length - (0.5*trench_w- theta_x/fabs(theta_x)*_x_out+ theta_x/fabs(theta_x)*i_pix*pix_size)/fabs(sin(theta_x));
+//            cout << "track enters the pixel outside the trench but exits inside of it" << endl;
+//            cout << " _x_in = " <<  _x_in << "  _x_out = " << _x_out << " - DeltaW=" << DeltaW << endl << "---------------------"<<endl;
+          }
+          if ( (_x_in+i_pix*pix_size)*(_x_out+i_pix*pix_size)<0.){
+            length = length - trench_w/fabs(sin(theta_x));
+            //cout << "DeltaW = " << trench_w/fabs(sin(theta_x)) << endl;
+          }
+        }
+
+
+/*        if (fabs(_x_in)<0.5*trench_w && fabs(_x_out)<0.5*trench_w) {  // whole track is inside trench
           continue;
         } else if (fabs(_x_in)<0.5*trench_w){
             // Float_t DeltaW = 0.5*trench_w+ theta_x/fabs(theta_x)*_x_in;   //-> trench width intercepted by track
@@ -147,7 +205,7 @@ void Montecarlino_PixelAngolato(Int_t Nwave=10){
         } else if (_x_in*_x_out<0.){
           length = length - trench_w/fabs(sin(theta_x));
         }
-
+*/
         if (length<0.) continue; // select track longer than a threshold
 
         Float_t scaled_peak = LandauPeak_meas*length/pix_depth;
@@ -163,45 +221,6 @@ void Montecarlino_PixelAngolato(Int_t Nwave=10){
         h_length[i]->Fill(length);
       }
       trackValid=TRUE; // RESET FLAG
-
-      if (n_pixels>1.) {
-        if(x_in<-0.5*pix_size && x_in>-1.5*pix_size) { // the track enters the pixel on the left
-          _z_in = z_in;
-          _x_in = x_in;
-        } else {   // the track enters the pixel from the side
-          if (_x_out==-0.5*pix_size) { // the track exits the central pixel from the side
-            //_z_in = z_in;
-            //_x_in = x_in;
-          }
-          // !!!!!!! TO BE DONE
-        }
-
-
-        if(x_out<-0.5*pix_size && x_out>-1.5*pix_size) {
-          _z_out = z_out;
-          _x_out = x_out;
-        } else {   // the track exits the pixel from the side
-          // !!!!!!! TO BE DONE
-        }
-        if(x_in>0.5*pix_size && x_in<1.5*pix_size) { // the track enters the pixel on the right
-          _z_in = z_in;
-          _x_in = x_in;
-        } else {   // the track enters the pixel from the side
-          // !!!!!!! TO BE DONE
-        }
-        if(x_out>0.5*pix_size && x_out<1.5*pix_size) {
-          _z_out = z_out;
-          _x_out = x_out;
-        } else {   // the track exits the pixel from the side
-          // !!!!!!! TO BE DONE
-        }
-        if( _z_in<z_in || _z_in>z_out ) trackValid=FALSE;
-        if (trackValid==TRUE) {
-         // h2D_in[i]->Fill(_x_in,_z_in);
-         // h2D_out[i]->Fill(_x_out,_z_out);
-        }
-      }
-
     }
   }
   TCanvas *c = new TCanvas("c","c",900,450); c->Divide(2,1);
@@ -237,7 +256,7 @@ void Montecarlino_PixelAngolato(Int_t Nwave=10){
     //c2D->cd(1);  hX_in[0]->Draw();
     //c2D->cd(2);  h_theta->Draw();
   for(int i=0; i<anglesN; i++){
-    c2D->cd(i+1);  h2D_in[i]->Draw("colz");
-    c2D->cd(i+anglesN+1);  h2D_out[i]->Draw("colz");
+    c2D->cd(i+1);  h2D_in[i]->Draw("same");
+    c2D->cd(i+anglesN+1);  h2D_out[i]->Draw("same");
   }
 }
