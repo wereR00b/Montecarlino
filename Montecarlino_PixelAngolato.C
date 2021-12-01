@@ -31,7 +31,7 @@ void Montecarlino_PixelAngolato(Int_t Nwave=10000000){
   const Int_t drawn_tracks = 10;
   //Float_t rotD_x[] = {3};  // rotation angles in degrees
   const Float_t rotD_x[] = {0,3,10,20};  // rotation angles in degrees
-  const Float_t vertex_w = 1.*pix_size;
+  const Float_t vertex_w = 10.*pix_size;
   const Float_t sigma_beam = 0.0001; // sigma of the beam ~0.0001rad
   const Bool_t displayVertexes = FALSE;
 
