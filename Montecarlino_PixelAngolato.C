@@ -10,7 +10,7 @@ Double_t GaussianaN(Double_t *x, Double_t *par);
 Double_t BifurGauss(Double_t *x, Double_t *par);
   //===============================================
 
-void Montecarlino_PixelAngolato(Int_t Nwave=1000000){
+void Montecarlino_PixelAngolato(Int_t Nwave=10000000){
     //gStyle->SetOptStat("");
   gStyle->SetOptStat("");
   gStyle->SetOptFit(1112);
@@ -26,12 +26,13 @@ void Montecarlino_PixelAngolato(Int_t Nwave=1000000){
   const Float_t pix_depth =150.;  // !!! µm
   const Float_t pix_size = 55.-10.;  // !!! µm
   const Float_t trench_w = 5.;  // !!! µm
-  const Int_t n_pixels = 5;  // MUST BE ODD!!! 1,3,5
+  const Int_t n_pixels = 3;  // MUST BE ODD!!! 1,3,5
   const Float_t z_in = 50000.; //50.;  // !!! µm
   const Int_t drawn_tracks = 10;
   //Float_t rotD_x[] = {3};  // rotation angles in degrees
   const Float_t rotD_x[] = {0,3,10,20};  // rotation angles in degrees
   const Float_t vertex_w = 1.*pix_size;
+  const Float_t sigma_beam = 0.0001; // sigma of the beam ~0.0001rad
   const Bool_t displayVertexes = FALSE;
 
   Float_t x_in, x_out;
@@ -101,7 +102,7 @@ void Montecarlino_PixelAngolato(Int_t Nwave=1000000){
 
     for(int iw=0; iw<Nwave; iw++){
       Float_t weight=1;
-      Float_t theta_x = rot_x[i]+ rndm.Gaus(0.,0.0001); // sigma of the beam ~0.0001rad
+      Float_t theta_x = rot_x[i]+ rndm.Gaus(0.,sigma_beam);
       h_theta->Fill(theta_x);
       Float_t x = rndm.Uniform(-0.5*vertex_w-z_in*tan(rot_x[i]),0.5*vertex_w-z_in*tan(rot_x[i])); // x coordinate of the vertex (z=0)
       // also draw the vertexes
