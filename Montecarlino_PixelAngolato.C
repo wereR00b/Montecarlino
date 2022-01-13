@@ -10,7 +10,7 @@ Double_t GaussianaN(Double_t *x, Double_t *par);
 Double_t BifurGauss(Double_t *x, Double_t *par);
   //===============================================
 
-void Montecarlino_PixelAngolato(Int_t Nwave=10000000){
+void Montecarlino_PixelAngolato(Int_t Nwave=1000000){
     //gStyle->SetOptStat("");
   gStyle->SetOptStat("");
   gStyle->SetOptFit(1112);
@@ -25,11 +25,11 @@ void Montecarlino_PixelAngolato(Int_t Nwave=10000000){
   // custom parameters
   const Float_t pix_depth =150.;  // !!! µm
   const Float_t pix_size = 55.-10.;  // !!! µm
-  const Float_t trench_w = 5.;  // !!! µm
+  const Float_t RO_trench_w = 0.;  // !!! µm    // Read-Out Trench Width
+  const Float_t BIAS_trench_w = 5.;  // !!! µm    // Bias Trench Width
   const Int_t n_pixels = 3;  // MUST BE ODD!!! 1,3,5
   const Float_t z_in = 50000.; //50.;  // !!! µm
   const Int_t drawn_tracks = 10;
-  //Float_t rotD_x[] = {3};  // rotation angles in degrees
   const Float_t rotD_x[] = {0,3,10,20};  // rotation angles in degrees
   const Float_t vertex_w = 10.*pix_size;
   const Float_t sigma_beam = 0.0001; // sigma of the beam ~0.0001rad
@@ -161,50 +161,64 @@ void Montecarlino_PixelAngolato(Int_t Nwave=10000000){
           trackValid=FALSE;
         }
       }
+
+      // check if track is completely inside the readout trench
       for (int i_pix=-0.5*n_pixels; i_pix<=0.5*n_pixels; i_pix++) {  //ex: if n_pixels is 3, i_pix= -1,0,1
-        //cout << "trench: "<<-0.5*trench_w+i_pix*pix_size << "\t"  << 0.5*trench_w+i_pix*pix_size << endl;
-        if ( (_x_in>-0.5*trench_w+i_pix*pix_size)&&(_x_in<0.5*trench_w+i_pix*pix_size) //
+        //cout << "trench: "<<-0.5*RO_trench_w+i_pix*pix_size << "\t"  << 0.5*RO_trench_w+i_pix*pix_size << endl;
+        if ( (_x_in>-0.5*RO_trench_w+i_pix*pix_size)&&(_x_in<0.5*RO_trench_w+i_pix*pix_size) //
             && //
-             (_x_out>-0.5*trench_w+i_pix*pix_size)&&(_x_out<0.5*trench_w+i_pix*pix_size) ) { //whole track is inside (one of) trench(es)
+             (_x_out>-0.5*RO_trench_w+i_pix*pix_size)&&(_x_out<0.5*RO_trench_w+i_pix*pix_size) ) { //whole track is inside (one of) READOUT trench(es)
           trackValid=FALSE;
           //cout << "!!!! _x_in= " <<_x_in << "\t _x_out= "<< _x_out<< endl;
         }
         //cout << "i_pix= "<< i_pix << endl;
+        if ( i_pix >= 0.) {
+          if ( (_x_in>-0.5*BIAS_trench_w+(0.5+i_pix)*pix_size)&&(_x_in<0.5*BIAS_trench_w+(0.5+i_pix)*pix_size) //
+              &&//
+              (_x_in>-0.5*BIAS_trench_w+(0.5+i_pix)*pix_size)&&(_x_in<0.5*BIAS_trench_w+(0.5+i_pix)*pix_size) ) { //whole track is inside BIAS trench in positive x
+            trackValid=FALSE;
+          }
+          if ( (_x_in>-0.5*BIAS_trench_w+(-0.5-i_pix)*pix_size)&&(_x_in<0.5*BIAS_trench_w+(-0.5-i_pix)*pix_size) //
+              &&//
+              (_x_in>-0.5*BIAS_trench_w+(-0.5-i_pix)*pix_size)&&(_x_in<0.5*BIAS_trench_w+(-0.5-i_pix)*pix_size) ) { //whole track is inside BIAS trench in positive x
+            trackValid=FALSE;
+          }
+        }
       }
 
       if (trackValid==TRUE) { // compute length and fill histograms only if the track is inside the pixel
         Float_t length = sqrt((_x_out-_x_in)*(_x_out-_x_in)+(_z_out-_z_in)*(_z_out-_z_in));
 
         for (int i_pix=-0.5*n_pixels; i_pix<=0.5*n_pixels; i_pix++) {  //ex: if n_pixels is 3, i_pix= -1,0,1
-          if ( (_x_in>-0.5*trench_w+i_pix*pix_size)&&(_x_in<0.5*trench_w+i_pix*pix_size) ) { // track enters the pixel inside the trench but exits outside of it
-//             Float_t DeltaW = 0.5*trench_w+ theta_x/fabs(theta_x)*_x_in - theta_x/fabs(theta_x)*i_pix*pix_size;   //-> trench width intercepted by track
-            length = length - (0.5*trench_w+ theta_x/fabs(theta_x)*_x_in- theta_x/fabs(theta_x)*i_pix*pix_size)/fabs(sin(theta_x));
+          if ( (_x_in>-0.5*RO_trench_w+i_pix*pix_size)&&(_x_in<0.5*RO_trench_w+i_pix*pix_size) ) { // track enters the pixel inside the trench but exits outside of it
+//             Float_t DeltaW = 0.5*RO_trench_w+ theta_x/fabs(theta_x)*_x_in - theta_x/fabs(theta_x)*i_pix*pix_size;   //-> trench width intercepted by track
+            length = length - (0.5*RO_trench_w+ theta_x/fabs(theta_x)*_x_in- theta_x/fabs(theta_x)*i_pix*pix_size)/fabs(sin(theta_x));
 //            cout << "track enters the pixel inside the trench but exits outside of it" << endl;
 //            cout << " _x_in = " <<  _x_in << "  _x_out = " << _x_out << " - DeltaW=" << DeltaW << endl << "---------------------"<<endl;
           }
-          if ( (_x_out>-0.5*trench_w+i_pix*pix_size)&&(_x_out<0.5*trench_w+i_pix*pix_size) ) { // track enters the pixel outside the trench but exits inside of it
-//             Float_t DeltaW = 0.5*trench_w - theta_x/fabs(theta_x)*_x_out + theta_x/fabs(theta_x)*i_pix*pix_size;   //-> trench width intercepted by track
-            length = length - (0.5*trench_w- theta_x/fabs(theta_x)*_x_out+ theta_x/fabs(theta_x)*i_pix*pix_size)/fabs(sin(theta_x));
+          if ( (_x_out>-0.5*RO_trench_w+i_pix*pix_size)&&(_x_out<0.5*RO_trench_w+i_pix*pix_size) ) { // track enters the pixel outside the trench but exits inside of it
+//             Float_t DeltaW = 0.5*RO_trench_w - theta_x/fabs(theta_x)*_x_out + theta_x/fabs(theta_x)*i_pix*pix_size;   //-> trench width intercepted by track
+            length = length - (0.5*RO_trench_w- theta_x/fabs(theta_x)*_x_out+ theta_x/fabs(theta_x)*i_pix*pix_size)/fabs(sin(theta_x));
 //            cout << "track enters the pixel outside the trench but exits inside of it" << endl;
 //            cout << " _x_in = " <<  _x_in << "  _x_out = " << _x_out << " - DeltaW=" << DeltaW << endl << "---------------------"<<endl;
           }
           if ( (_x_in+i_pix*pix_size)*(_x_out+i_pix*pix_size)<0.){
-            length = length - trench_w/fabs(sin(theta_x));
-            //cout << "DeltaW = " << trench_w/fabs(sin(theta_x)) << endl;
+            length = length - RO_trench_w/fabs(sin(theta_x));
+            //cout << "DeltaW = " << RO_trench_w/fabs(sin(theta_x)) << endl;
           }
         }
 
 
-/*        if (fabs(_x_in)<0.5*trench_w && fabs(_x_out)<0.5*trench_w) {  // whole track is inside trench
+/*        if (fabs(_x_in)<0.5*RO_trench_w && fabs(_x_out)<0.5*RO_trench_w) {  // whole track is inside trench
           continue;
-        } else if (fabs(_x_in)<0.5*trench_w){
-            // Float_t DeltaW = 0.5*trench_w+ theta_x/fabs(theta_x)*_x_in;   //-> trench width intercepted by track
-          length = length - (0.5*trench_w+ theta_x/fabs(theta_x)*_x_in)/fabs(sin(theta_x));
-        } else if (fabs(_x_out)<0.5*trench_w){
-            // Float_t DeltaW = 0.5*trench_w- theta_x/fabs(theta_x)*_x_out;   //-> trench width intercepted by track
-          length = length - (0.5*trench_w- theta_x/fabs(theta_x)*_x_out)/fabs(sin(theta_x));
+        } else if (fabs(_x_in)<0.5*RO_trench_w){
+            // Float_t DeltaW = 0.5*RO_trench_w+ theta_x/fabs(theta_x)*_x_in;   //-> trench width intercepted by track
+          length = length - (0.5*RO_trench_w+ theta_x/fabs(theta_x)*_x_in)/fabs(sin(theta_x));
+        } else if (fabs(_x_out)<0.5*RO_trench_w){
+            // Float_t DeltaW = 0.5*RO_trench_w- theta_x/fabs(theta_x)*_x_out;   //-> trench width intercepted by track
+          length = length - (0.5*RO_trench_w- theta_x/fabs(theta_x)*_x_out)/fabs(sin(theta_x));
         } else if (_x_in*_x_out<0.){
-          length = length - trench_w/fabs(sin(theta_x));
+          length = length - RO_trench_w/fabs(sin(theta_x));
         }
 */
         if (length<0.) continue; // select track longer than a threshold
